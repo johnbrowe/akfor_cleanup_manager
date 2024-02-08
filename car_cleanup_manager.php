@@ -45,6 +45,7 @@ function init_db__car_clean_up_plugin() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         post_ID VARCHAR(255) NULL,
         created VARCHAR(255) NULL,
+        post_author VARCHAR(255) NULL,
         modified VARCHAR(255) NULL,
         title VARCHAR(255) NULL,
         final_price VARCHAR(255) NULL,
@@ -76,13 +77,13 @@ function init_db__car_clean_up_plugin() {
 
 function display_car_data_page() {
     global $wpdb;
-    $table_name = $wpdb->prefix . 'akfoer_car_stats';
-    $table_name = $wpdb->prefix . 'posts';
+    $akfoer_car_stats_table = $wpdb->prefix . 'akfoer_car_stats';
+    $posts_table_name = $wpdb->prefix . 'posts';
     $postsQuery = $wpdb->prepare(
         "
         SELECT *
-        FROM {$wpdb->prefix}posts
-        WHERE post_type = %s AND post_status = %s AND post_date < now() - interval 90 DAY
+        FROM {$posts_table_name}
+        WHERE post_type = %s AND post_status = %s AND post_date < now() - interval 15 DAY
         ORDER BY post_date DESC
         ",
         'cars',
@@ -94,6 +95,7 @@ function display_car_data_page() {
     foreach ($postResults as $post) {
         $ID = $post->ID;
         $created = $post->post_date;
+        $post_author = $post->post_author;
         $title = $post->post_title;
         $modified = $post->post_modified;
         $final_price = get_post_meta($post->ID, 'final_price', true) ?? null;
@@ -120,9 +122,10 @@ function display_car_data_page() {
 
        
 
-        $wpdb->insert($table_name, array(
+        $insertResult = $wpdb->insert($akfoer_car_stats_table, array(
             'post_ID' => $ID, 
             'created' =>  $created, 
+            'post_author' =>  $post_author, 
             'modified' => $modified, 
             'title' => $title, 
             'final_price' => $final_price, 
@@ -146,12 +149,17 @@ function display_car_data_page() {
             'dealer' => $dealer)
         ); 
 
-        $wpdb->delete(
-            $table_name,
-            array(
-                'ID' => $ID,
-            )
-        );
+        if($insertResult){
+            $wpdb->delete(
+                $posts_table_name,
+                array(
+                    'ID' => $ID,
+                )
+            );
+        } else {
+            echo $ID . " failed";
+        }
+        
     }
     $count = count($postResults);
     $charset_collate = $wpdb->get_charset_collate();
